@@ -1,7 +1,8 @@
-"""ComicEngine Mac env verification: API packages + .env keys."""
+"""ComicEngine Mac env verification: API packages, .env keys, hello calls."""
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -13,6 +14,51 @@ REQUIRED_IMPORTS = (
     ("openai", "openai"),
     ("google.genai", "google-genai"),
 )
+
+
+def _require_key(name: str) -> str:
+    value = (os.getenv(name) or "").strip()
+    if not value:
+        raise RuntimeError(f"{name} is missing or empty")
+    return value
+
+
+def hello_anthropic() -> int:
+    import anthropic
+
+    client = anthropic.Anthropic(api_key=_require_key("ANTHROPIC_API_KEY"))
+    raw = client.messages.with_raw_response.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=16,
+        messages=[{"role": "user", "content": "hello"}],
+    )
+    return raw.status_code
+
+
+def hello_openai() -> int:
+    import openai
+
+    client = openai.OpenAI(api_key=_require_key("OPENAI_API_KEY"))
+    raw = client.chat.completions.with_raw_response.create(
+        model="gpt-4o-mini",
+        max_tokens=16,
+        messages=[{"role": "user", "content": "hello"}],
+    )
+    return raw.status_code
+
+
+def hello_google() -> int:
+    from google import genai
+
+    client = genai.Client(api_key=_require_key("GOOGLE_API_KEY"))
+    # google-genai does not expose with_raw_response; success means HTTP 200.
+    response = client.models.generate_content(
+        model="gemini-3.5-flash",
+        contents="hello",
+    )
+    if not getattr(response, "text", None) and not getattr(response, "candidates", None):
+        raise RuntimeError("empty Google response")
+    return 200
 
 
 def main() -> int:
@@ -35,7 +81,6 @@ def main() -> int:
         return 1
 
     from dotenv import load_dotenv
-    import os
 
     env_path = REPO_ROOT / ".env"
     if not env_path.is_file():
@@ -58,7 +103,30 @@ def main() -> int:
         print("\nFill the missing keys in .env (never commit that file).")
         return 1
 
-    print("\nAll checks passed.")
+    print("\n--- Live API hello checks ---")
+    checks = (
+        ("Anthropic", hello_anthropic),
+        ("OpenAI", hello_openai),
+        ("Google", hello_google),
+    )
+    for name, fn in checks:
+        try:
+            status = fn()
+            if status == 200:
+                print(f'OK: {name} hello -> {status}')
+            else:
+                print(f'FAIL: {name} hello -> {status} (expected 200)')
+                failed = True
+        except Exception as exc:
+            print(f"FAIL: {name} hello ({type(exc).__name__}: {exc})")
+            failed = True
+
+    if failed:
+        print("\nOne or more API hello checks failed.")
+        return 1
+
+    print('\nSuccess: a "hello" call to each API returns 200.')
+    print("All checks passed.")
     return 0
 
 
