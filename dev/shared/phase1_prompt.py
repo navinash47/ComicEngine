@@ -1,0 +1,25 @@
+"""Shared Phase 1 prompt: Julius Caesar / Republic → Empire comic panel."""
+
+PROMPT = (
+    "Comic-book panel, bold ink and muted Roman color, Julius Caesar standing "
+    "before the Senate as the Roman Republic gives way to imperial power; "
+    "marble columns, tense senators, dramatic chiaroscuro; historically "
+    "suggestive costume (laurel, toga/armor); no modern text, no speech bubbles, "
+    "single heroic panel composition."
+)
+
+OUTPUT_FILENAME = "julius_caesar_republic_to_empire.png"
+
+# FLUX schnell panel size (portrait comic-ish); plan uses 800x1280.
+FLUX_WIDTH = 800
+FLUX_HEIGHT = 1280
+FLUX_SEED = 42
+FLUX_STEPS = 4
+FLUX_GUIDANCE = 0.0
+FLUX_MAX_SEQ_LEN = 256
+
+MODEL_FLUX = "black-forest-labs/FLUX.1-schnell"
+MODEL_NANO_BANANA = "gemini-3.1-flash-image"
+
+TARGET_VRAM_GB = 12.0
+TARGET_INFER_SECONDS = 30.0
