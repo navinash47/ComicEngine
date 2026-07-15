@@ -1,0 +1,12 @@
+# PyTorch CUDA 12.8 wheels (RTX 50-series / sm_120).
+# Prefer: pip install -r env_setup/windows/requirements.txt
+--extra-index-url https://download.pytorch.org/whl/cu128
+
+torch
+torchvision
+diffusers
+transformers
+accelerate
+pillow
+jupyterlab
+huggingface_hub

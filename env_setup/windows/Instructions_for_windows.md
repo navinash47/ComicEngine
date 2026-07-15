@@ -6,7 +6,7 @@ Windows GPU env verification for RTX 50-series (sm_120 / capability `(12, 0)`).
 
 ```powershell
 conda activate myenv
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+pip install -r env_setup/windows/requirements.txt
 ```
 
 ## Verify
