@@ -67,3 +67,19 @@ Should report that `.gitignore` ignores `.env`.
 | `env_setup/mac/verify.py` | Confirms packages + keys load |
 
 fal.ai (`FAL_KEY`) and RunPod (`RUNPOD_API_KEY`) are intentionally not required yet.
+
+## Phase 1 — Nano Banana (Mac)
+
+From the ComicEngine repo root (after Windows/Mac sync of `dev/`):
+
+```bash
+conda activate myenv
+pip install -r env_setup/mac/requirements.txt   # includes pillow
+python env_setup/mac/verify.py                  # optional
+python dev/mac/mac_dev.py
+```
+
+Uses `GOOGLE_API_KEY` and model `gemini-3.1-flash-image`. Artifacts land in:
+
+`runs/phase1/nano_banana/{outputs,logs}/`
+
