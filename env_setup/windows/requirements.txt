@@ -10,3 +10,4 @@ accelerate
 pillow
 jupyterlab
 huggingface_hub
+python-dotenv
