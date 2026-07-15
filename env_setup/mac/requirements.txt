@@ -1,0 +1,7 @@
+# ComicEngine Mac API / LLM client deps.
+# Prefer: pip install -r env_setup/mac/requirements.txt
+anthropic
+openai
+google-genai
+python-dotenv
+fal-client
