@@ -36,6 +36,7 @@ def main() -> int:
     caught: list[warnings.WarningMessage] = []
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
+        t = torch.randn(4).cuda()
         a = torch.randn(64, 64, device="cuda")
         b = torch.randn(64, 64, device="cuda")
         c = a @ b
@@ -54,8 +55,10 @@ def main() -> int:
         return 1
     print("OK: no sm_120 warning")
 
+    print(f"OK: torch.randn(4).cuda() -> {t.device}")
     print("OK: basic CUDA matmul + relu succeeded")
-    print("\nAll checks passed.")
+    print("\nSuccess: torch.randn(4).cuda() works on the PC")
+    print("All checks passed.")
     return 0
 
 
