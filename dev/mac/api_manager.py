@@ -66,8 +66,8 @@ class EnvKeys:
         return token
 
     def fal_or_hf(self) -> str:
-        """fal-ai: prefer FAL_KEY, fall back to HF_TOKEN."""
-        return self.get("FAL_KEY") or self.hf_token()
+        """fal-ai: prefer FAL_KEY / FAL_API_KEY, fall back to HF_TOKEN."""
+        return self.get("FAL_KEY") or self.get("FAL_API_KEY") or self.hf_token()
 
 
 class HuggingFaceImage:
