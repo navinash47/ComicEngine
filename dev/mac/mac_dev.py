@@ -17,6 +17,9 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from dev.shared.phase1_prompt import (  # noqa: E402
+    IMAGE_ASPECT_RATIO,
+    IMAGE_HEIGHT,
+    IMAGE_WIDTH,
     MODEL_NANO_BANANA,
     OUTPUT_FILENAME,
     PROMPT,
@@ -42,10 +45,22 @@ def _write_logs(stamp: str, metrics: dict, lines: list[str]) -> tuple[Path, Path
 
 def _image_bytes_from_interactions(client, prompt: str) -> bytes:
     """Preferred path: Interactions API (current Nano Banana docs)."""
-    interaction = client.interactions.create(
-        model=MODEL_NANO_BANANA,
-        input=prompt,
-    )
+    try:
+        from google.genai import types
+
+        interaction = client.interactions.create(
+            model=MODEL_NANO_BANANA,
+            input=prompt,
+            generation_config=types.GenerateContentConfig(
+                image_config=types.ImageConfig(aspect_ratio=IMAGE_ASPECT_RATIO),
+            ),
+        )
+    except TypeError:
+        # Older SDK / API may not accept generation_config on interactions.
+        interaction = client.interactions.create(
+            model=MODEL_NANO_BANANA,
+            input=prompt,
+        )
     out = getattr(interaction, "output_image", None)
     if out is None:
         raise RuntimeError("interactions response missing output_image")
@@ -66,6 +81,7 @@ def _image_bytes_from_generate_content(client, prompt: str) -> bytes:
         contents=prompt,
         config=types.GenerateContentConfig(
             response_modalities=["TEXT", "IMAGE"],
+            image_config=types.ImageConfig(aspect_ratio=IMAGE_ASPECT_RATIO),
         ),
     )
     parts = []
@@ -102,6 +118,8 @@ def main() -> int:
         f"utc:        {stamp}",
         f"model:      {MODEL_NANO_BANANA}",
         f"device:     mac-api",
+        f"size:       {IMAGE_WIDTH}x{IMAGE_HEIGHT}",
+        f"aspect:     {IMAGE_ASPECT_RATIO}",
         f"prompt:     {PROMPT}",
         "",
     ]
@@ -109,8 +127,8 @@ def main() -> int:
     metrics: dict = {
         "model_id": MODEL_NANO_BANANA,
         "prompt": PROMPT,
-        "width": None,
-        "height": None,
+        "width": IMAGE_WIDTH,
+        "height": IMAGE_HEIGHT,
         "load_seconds": None,
         "infer_seconds": None,
         "peak_vram_gb": None,
@@ -163,8 +181,11 @@ def main() -> int:
         infer_s = time.perf_counter() - t0
         metrics["infer_seconds"] = round(infer_s, 3)
 
-        # Persist PNG; report size if PIL can open it.
+        # Match shared panel size (API returns its own resolution/aspect).
         img = Image.open(io.BytesIO(raw))
+        if img.size != (IMAGE_WIDTH, IMAGE_HEIGHT):
+            lines.append(f"api_size:     {img.size[0]}x{img.size[1]} -> resize")
+            img = img.resize((IMAGE_WIDTH, IMAGE_HEIGHT), Image.Resampling.LANCZOS)
         metrics["width"], metrics["height"] = img.size
         # Re-encode as PNG for a consistent extension.
         buf = io.BytesIO()
