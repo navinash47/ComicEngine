@@ -3,6 +3,7 @@
 anthropic
 openai
 google-genai
+huggingface_hub
 python-dotenv
 fal-client
 pillow
