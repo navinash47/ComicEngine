@@ -1,6 +1,6 @@
 # Phase 1 progress notes
 
-Goal: prove local FLUX + Nano Banana both render one Julius Caesar / Republic→Empire comic panel, with separate outputs + logs, and log seconds/image + VRAM for FLUX.
+Goal: prove local FLUX + Nano Banana both render one Julius Caesar / Republic→Empire comic panel, with separate outputs + logs, and log seconds/image + VRAM for FLUX. Later: unify Mac API clients and smoke-test FLUX via fal-ai at the same shared panel size.
 
 Date: 2026-07-15
 
@@ -10,14 +10,17 @@ Date: 2026-07-15
 
 | Path | Role |
 |------|------|
-| `dev/shared/phase1_prompt.py` | Shared prompt + size/seed/model constants |
+| `dev/shared/phase1_prompt.py` | Shared prompt + size/seed/model constants (800×1280) |
 | `dev/windows/windows_dev.py` | FLUX.1-schnell local smoke (Windows GPU) |
-| `dev/mac/mac_dev.py` | Nano Banana (`gemini-3.1-flash-image`) via `google-genai` |
+| `dev/mac/api_manager.py` | Unified Mac API clients: HF providers, Google, OpenAI, Anthropic |
+| `dev/mac/mac_dev.py` | Interactive cells; default smoke = fal-ai FLUX via `ApiManager` |
+| `env_setup/mac/requirements.txt` | Includes `huggingface_hub` (+ existing genai/LLM deps) |
 | `.gitignore` | Ignores `runs/`, `.env`, caches |
-| `.env.example` | Placeholder keys including `HF_TOKEN` |
-| `runs/phase1/{flux_schnell,nano_banana}/{outputs,logs}/` | Artifacts (gitignored) |
+| `runs/phase1/{flux_schnell,nano_banana,flux_fal}/{outputs,logs}/` | Artifacts (gitignored) |
 
-Prompt (both models): comic panel of Julius Caesar before the Senate as Republic gives way to Empire.
+Prompt (all models): comic panel of Julius Caesar before the Senate as Republic gives way to Empire.
+
+Shared panel size for phone-scroll comics: **800×1280** (portrait).
 
 ---
 
@@ -40,7 +43,11 @@ Prompt (both models): comic panel of Julius Caesar before the Senate as Republic
 
 7. **Full FLUX run** — 800×1280, 4 steps, seed 42, Julius Caesar prompt → PNG + metrics written.
 
-8. **Nano Banana** — `dev/mac/mac_dev.py` with `GOOGLE_API_KEY` (Interactions API primary, `generate_content` fallback). First attempt hit `MemoryError` while FLUX leftovers still held RAM; after killing Python processes, succeeded.
+8. **Nano Banana** — Google `gemini-3.1-flash-image` (Interactions API primary, `generate_content` fallback). First attempt hit `MemoryError` while FLUX leftovers still held RAM; after killing Python processes, succeeded. Logic later moved into `api_manager.GoogleAPI`.
+
+9. **Mac API manager** — consolidated HF Inference providers (`fal-ai`, `together`, `replicate`, `nscale`, `wavespeed`, `hf-inference`), Google (chat + image), OpenAI (chat + DALL·E), Anthropic (chat) into `dev/mac/api_manager.py`. `mac_dev.py` is cell-friendly: pick provider/model in-code, no CLI args.
+
+10. **fal-ai FLUX smoke** — `ApiManager.hf_image(..., provider="fal-ai")`. First run returned provider default **1024×768**; updated call to pass `width=800`, `height=1280` (shared constants) so output matches portrait comic size. Keys: prefer `FAL_KEY`, fall back to `HF_TOKEN`.
 
 ---
 
@@ -57,33 +64,50 @@ Prompt (both models): comic panel of Julius Caesar before the Senate as Republic
 
 ### Nano Banana / `gemini-3.1-flash-image`
 
-- Output: `runs/phase1/nano_banana/outputs/julius_caesar_republic_to_empire.png` (1408×768)
+- Output: `runs/phase1/nano_banana/outputs/julius_caesar_republic_to_empire.png` (1408×768 then resized toward shared size in script)
 - Log: `runs/phase1/nano_banana/logs/run_20260715_102515.*`
 - infer: **9.8s**
 - peak VRAM: n/a (API)
+
+### FLUX.1-schnell via fal-ai (HF InferenceClient)
+
+- Output: `runs/phase1/flux_fal/outputs/julius_caesar_republic_to_empire.png` (**800×1280**)
+- Log: `runs/phase1/flux_fal/logs/run_20260716_035141.*`
+- infer: **2.6s**
+- peak VRAM: n/a (API)
+- Note: ~100× faster than local sequential-offload FLUX on this machine for the same shared size
 
 ---
 
 ## How to re-run
 
 ```powershell
-# Windows FLUX
+# Windows local FLUX
 conda activate myenv
 python dev/windows/windows_dev.py
 ```
 
 ```bash
-# Mac (or any machine with GOOGLE_API_KEY in .env)
+# Mac API — default cell is fal-ai FLUX (800×1280)
 conda activate myenv
+pip install -r env_setup/mac/requirements.txt   # includes huggingface_hub
 python dev/mac/mac_dev.py
 ```
 
-Needs: `HF_TOKEN` in `.env` (and HF gate accepted for FLUX.1-schnell); `GOOGLE_API_KEY` for Nano Banana.
+Needs in repo-root `.env`:
+
+- `HF_TOKEN` — local FLUX gate + non-fal HF providers
+- `FAL_KEY` — preferred for `provider="fal-ai"` (falls back to `HF_TOKEN` if unset)
+- `GOOGLE_API_KEY` — Nano Banana / Gemini (via `api.google_image` / `api.google_chat`)
+- `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` — chat (and OpenAI images) when needed
+
+Interactive examples (commented in `mac_dev.py`): other HF providers, Google Nano Banana, OpenAI/Anthropic chat.
 
 ---
 
-## Open follow-ups (not done in Phase 1)
+## Open follow-ups
 
-- Get FLUX under 30s/image: try `enable_model_cpu_offload()` again with more system RAM / larger pagefile, or quantized weights, once AV is understood.
-- Keep secrets only in `.env` (never `.env.example`).
-- Mac can re-run `mac_dev.py` on the Mac clone for a true Mac-side log if desired; generation itself is API-only.
+- Get local FLUX under 30s/image: try `enable_model_cpu_offload()` again with more system RAM / larger pagefile, or quantized weights, once AV is understood.
+- Keep secrets only in `.env` (never commit keys).
+- Optional: re-run Nano Banana through `api.google_image` and save under a fresh log for apples-to-apples vs fal at 800×1280.
+- Compare quality across local FLUX / fal FLUX / Nano Banana for the same prompt + size.
