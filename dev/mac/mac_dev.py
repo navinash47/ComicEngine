@@ -29,7 +29,7 @@ RUN_ROOT = REPO_ROOT / "runs" / "phase1" / "nano_banana"
 OUTPUTS_DIR = RUN_ROOT / "outputs"
 LOGS_DIR = RUN_ROOT / "logs"
 
-
+# %%
 def _stamp() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 
@@ -45,22 +45,15 @@ def _write_logs(stamp: str, metrics: dict, lines: list[str]) -> tuple[Path, Path
 
 def _image_bytes_from_interactions(client, prompt: str) -> bytes:
     """Preferred path: Interactions API (current Nano Banana docs)."""
-    try:
-        from google.genai import types
-
-        interaction = client.interactions.create(
-            model=MODEL_NANO_BANANA,
-            input=prompt,
-            generation_config=types.GenerateContentConfig(
-                image_config=types.ImageConfig(aspect_ratio=IMAGE_ASPECT_RATIO),
-            ),
-        )
-    except TypeError:
-        # Older SDK / API may not accept generation_config on interactions.
-        interaction = client.interactions.create(
-            model=MODEL_NANO_BANANA,
-            input=prompt,
-        )
+    # Interactions uses its own GenerationConfig (dict), not GenerateContentConfig.
+    interaction = client.interactions.create(
+        model=MODEL_NANO_BANANA,
+        input=prompt,
+        response_format={
+            "type": "image",
+            "aspect_ratio": IMAGE_ASPECT_RATIO,
+        },
+    )
     out = getattr(interaction, "output_image", None)
     if out is None:
         raise RuntimeError("interactions response missing output_image")
@@ -99,13 +92,16 @@ def _image_bytes_from_generate_content(client, prompt: str) -> bytes:
 
 
 def _generate_image_bytes(client, prompt: str) -> bytes:
-    # Prefer interactions; fall back if AttributeError on older SDK.
+    # Prefer interactions; fall back if API missing or request shape rejected.
     try:
         return _image_bytes_from_interactions(client, prompt)
-    except AttributeError:
+    except Exception as exc:
+        # AttributeError: no interactions; ValidationError/TypeError: bad kwargs.
+        if type(exc).__name__ not in ("AttributeError", "TypeError", "ValidationError"):
+            raise
         return _image_bytes_from_generate_content(client, prompt)
 
-
+# %%
 def main() -> int:
     OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
@@ -222,3 +218,5 @@ def main() -> int:
 # %%
 if __name__ == "__main__":
     raise SystemExit(main())
+
+# %%
